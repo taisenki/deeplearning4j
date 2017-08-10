@@ -23,7 +23,7 @@ package org.deeplearning4j.plot;
 import com.google.common.util.concurrent.AtomicDouble;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.math3.util.FastMath;
-import org.deeplearning4j.berkeley.Pair;
+import org.nd4j.linalg.primitives.Pair;
 import org.deeplearning4j.clustering.sptree.DataPoint;
 import org.deeplearning4j.clustering.sptree.SpTree;
 import org.deeplearning4j.clustering.vptree.VPTree;
@@ -515,8 +515,9 @@ public class BarnesHutTsne implements Model {
 
         if (useAdaGrad) {
             if (adaGrad == null) {
-                adaGrad = new AdaGrad(gradient.shape(),learningRate);
-                adaGrad.setStateViewArray(Nd4j.zeros(gradient.shape()).reshape(1,gradChange.length()),gradChange.shape(),gradient.ordering(),true);
+                adaGrad = new AdaGrad(gradient.shape(), learningRate);
+                adaGrad.setStateViewArray(Nd4j.zeros(gradient.shape()).reshape(1, gradChange.length()),
+                                gradChange.shape(), gradient.ordering(), true);
             }
 
             gradChange = adaGrad.getGradient(gradChange, 0);

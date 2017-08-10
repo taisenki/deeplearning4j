@@ -4,8 +4,8 @@ import com.google.common.collect.Lists;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
-import org.deeplearning4j.berkeley.Counter;
-import org.deeplearning4j.berkeley.Pair;
+import org.nd4j.linalg.primitives.Counter;
+import org.nd4j.linalg.primitives.Pair;
 import org.deeplearning4j.models.embeddings.WeightLookupTable;
 import org.deeplearning4j.models.embeddings.inmemory.InMemoryLookupTable;
 import org.deeplearning4j.models.embeddings.learning.ElementsLearningAlgorithm;
@@ -484,7 +484,7 @@ public class ParagraphVectors extends Word2Vec {
             distances.incrementCount(s, (float) sim);
         }
 
-        return distances.getSortedKeys().subList(0, limit);
+        return distances.keySetSorted().subList(0, limit);
     }
 
     /**
@@ -824,6 +824,20 @@ public class ParagraphVectors extends Word2Vec {
         }
 
         /**
+         * This method sets vocabulary limit during construction.
+         *
+         * Default value: 0. Means no limit
+         *
+         * @param limit
+         * @return
+         */
+        @Override
+        public Builder limitVocabularySize(int limit) {
+            super.limitVocabularySize(limit);
+            return this;
+        }
+
+        /**
          * This method allows you to specify SequenceElement that will be used as UNK element, if UNK is used
          *
          * @param element
@@ -948,6 +962,7 @@ public class ParagraphVectors extends Word2Vec {
             ret.unknownElement = this.unknownElement;
             ret.seed = this.seed;
             ret.enableScavenger = this.enableScavenger;
+            ret.vocabLimit = this.vocabLimit;
 
             ret.trainElementsVectors = this.trainElementsVectors;
             ret.trainSequenceVectors = this.trainSequenceVectors;

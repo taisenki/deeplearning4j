@@ -3,6 +3,7 @@ package org.deeplearning4j.optimize.solvers.accumulation;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.deeplearning4j.exception.DL4JInvalidConfigException;
+import org.deeplearning4j.nn.api.Model;
 import org.deeplearning4j.optimize.api.StepFunction;
 import org.nd4j.linalg.api.memory.MemoryWorkspace;
 import org.nd4j.linalg.api.memory.conf.WorkspaceConfiguration;
@@ -16,7 +17,8 @@ import org.nd4j.linalg.util.AtomicThrowable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
@@ -76,8 +78,8 @@ public class EncodedGradientsAccumulator implements GradientsAccumulator, Regist
         this(parties, new EncodingHandler(threshold), 100 * 1024 * 1024L, 10, 1.0);
     }
 
-    protected EncodedGradientsAccumulator(int parties, @NonNull MessageHandler handler, long initialMemory, int queueSize,
-                                          Double boundary) {
+    protected EncodedGradientsAccumulator(int parties, @NonNull MessageHandler handler, long initialMemory,
+                    int queueSize, Double boundary) {
         this.parties = parties;
         this.handler = handler;
         this.initialMemory = initialMemory;
@@ -120,6 +122,31 @@ public class EncodedGradientsAccumulator implements GradientsAccumulator, Regist
         Nd4j.getAffinityManager().unsafeSetDevice(curDev);
 
         handler.initialize(this);
+    }
+
+    /**
+     * This method returns optimal bufferSize for a given model
+     *
+     * We know, that updates are guaranteed to have MAX size of params / 16. So, here we go.
+     * I.e. for model with 100m params, that's 400m of floats (or 800m of doubles)
+     * The worst case for us is bitmap encoding, that takes 2 bits to encode each gradient value
+     *
+     * so, for float in worst case we'll have (100m / 16) int elements. So, our buffer size will be 6.25m * queueSize * 4 bytes per int
+     *
+     * @param paramsLength
+     * @param numWorkers
+     * @param queueSize
+     * @return
+     */
+    public static int getOptimalBufferSize(int paramsLength, int numWorkers, int queueSize) {
+        // we add 64kb just for future proof volatility
+        int bufferSize = ((paramsLength / 16) + 65536) * numWorkers * queueSize * 4;
+        return bufferSize;
+    }
+
+
+    public static int getOptimalBufferSize(Model model, int numWorkers, int queueSize) {
+        return getOptimalBufferSize(model.params().length(), numWorkers, queueSize);
     }
 
     @Override
@@ -256,7 +283,8 @@ public class EncodedGradientsAccumulator implements GradientsAccumulator, Regist
                             else if (encoding == ThresholdCompression.BITMAP_ENCODING)
                                 Nd4j.getExecutioner().bitmapDecode(compressed_copy, updates);
                             else
-                                throw new DL4JInvalidConfigException("Unknown compression header received: " + encoding);
+                                throw new DL4JInvalidConfigException(
+                                                "Unknown compression header received: " + encoding);
                         }
                     } else {
                         int encoding = compressed.data().getInt(3);
@@ -339,7 +367,8 @@ public class EncodedGradientsAccumulator implements GradientsAccumulator, Regist
                             else if (encoding == ThresholdCompression.BITMAP_ENCODING)
                                 Nd4j.getExecutioner().bitmapDecode(compressed_copy, updates);
                             else
-                                throw new DL4JInvalidConfigException("Unknown compression header received: " + encoding);
+                                throw new DL4JInvalidConfigException(
+                                                "Unknown compression header received: " + encoding);
                         }
                     } else {
                         int encoding = compressed.data().getInt(3);

@@ -18,17 +18,19 @@
 
 package org.deeplearning4j.clustering.vptree;
 
-import org.deeplearning4j.clustering.berkeley.*;
+import com.google.common.util.concurrent.AtomicDouble;
+import org.nd4j.linalg.primitives.Counter;
 import org.deeplearning4j.clustering.sptree.DataPoint;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.exception.ND4JIllegalStateException;
 import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.indexing.INDArrayIndex;
-import org.nd4j.linalg.indexing.NDArrayIndex;
+import org.nd4j.linalg.primitives.Pair;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.PriorityQueue;
+import java.util.TreeSet;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -105,12 +107,12 @@ public class VpTreeNodeTest {
 
             }
 
-            org.deeplearning4j.clustering.berkeley.PriorityQueue<Integer> pq = counter.asMinPriorityQueue();
+            PriorityQueue<Pair<Integer, Double>> pq = counter.asReversedPriorityQueue();
             // keep closest k
             for (int i = 0; i < k; i++) {
-                Integer di = pq.next();
-                System.out.println("exhaustive d=" + di);
-                s.add(di);
+                Pair<Integer, Double> di = pq.poll();
+                System.out.println("exhaustive d=" + di.getFirst());
+                s.add(di.getFirst());
             }
 
             // Check what VPTree gives for results
@@ -140,10 +142,10 @@ public class VpTreeNodeTest {
                     results = fillSearch.getResults();
                 }
                 assertTrue(String.format(
-                        "VPTree result" + " %d is not in the " + "closest %d " + " " + "from the exhaustive"
-                                + " search with query point %s and "
-                                + "result %s and target not found %s",
-                        r, k, query.toString(), results.toString(), expectedResult.toString()), s.contains(r));
+                                "VPTree result" + " %d is not in the " + "closest %d " + " " + "from the exhaustive"
+                                                + " search with query point %s and "
+                                                + "result %s and target not found %s",
+                                r, k, query.toString(), results.toString(), expectedResult.toString()), s.contains(r));
             }
 
         }
@@ -167,34 +169,34 @@ public class VpTreeNodeTest {
         assertEquals(Nd4j.create(new double[] {60, 60}), assertion.getPoint());
     }
 
-    @Test (expected = ND4JIllegalStateException.class)
+    @Test(expected = ND4JIllegalStateException.class)
     public void vpTreeTest2() {
         List<DataPoint> points = new ArrayList<>();
-        points.add(new DataPoint(0, Nd4j.create(new double[]{55, 55})));
-        points.add(new DataPoint(1, Nd4j.create(new double[]{60, 60})));
-        points.add(new DataPoint(2, Nd4j.create(new double[]{65, 65})));
+        points.add(new DataPoint(0, Nd4j.create(new double[] {55, 55})));
+        points.add(new DataPoint(1, Nd4j.create(new double[] {60, 60})));
+        points.add(new DataPoint(2, Nd4j.create(new double[] {65, 65})));
         VPTree tree = new VPTree(points, "euclidean");
 
         tree.search(Nd4j.create(1, 10), 2, new ArrayList<DataPoint>(), new ArrayList<Double>());
     }
 
-    @Test (expected = ND4JIllegalStateException.class)
+    @Test(expected = ND4JIllegalStateException.class)
     public void vpTreeTest3() {
         List<DataPoint> points = new ArrayList<>();
-        points.add(new DataPoint(0, Nd4j.create(new double[]{55, 55})));
-        points.add(new DataPoint(1, Nd4j.create(new double[]{60, 60})));
-        points.add(new DataPoint(2, Nd4j.create(new double[]{65, 65})));
+        points.add(new DataPoint(0, Nd4j.create(new double[] {55, 55})));
+        points.add(new DataPoint(1, Nd4j.create(new double[] {60, 60})));
+        points.add(new DataPoint(2, Nd4j.create(new double[] {65, 65})));
         VPTree tree = new VPTree(points, "euclidean");
 
         tree.search(Nd4j.create(2, 10), 2, new ArrayList<DataPoint>(), new ArrayList<Double>());
     }
 
-    @Test (expected = ND4JIllegalStateException.class)
+    @Test(expected = ND4JIllegalStateException.class)
     public void vpTreeTest4() {
         List<DataPoint> points = new ArrayList<>();
-        points.add(new DataPoint(0, Nd4j.create(new double[]{55, 55})));
-        points.add(new DataPoint(1, Nd4j.create(new double[]{60, 60})));
-        points.add(new DataPoint(2, Nd4j.create(new double[]{65, 65})));
+        points.add(new DataPoint(0, Nd4j.create(new double[] {55, 55})));
+        points.add(new DataPoint(1, Nd4j.create(new double[] {60, 60})));
+        points.add(new DataPoint(2, Nd4j.create(new double[] {65, 65})));
         VPTree tree = new VPTree(points, "euclidean");
 
         tree.search(Nd4j.create(2, 10, 10), 2, new ArrayList<DataPoint>(), new ArrayList<Double>());
@@ -203,7 +205,7 @@ public class VpTreeNodeTest {
     public static INDArray generateNaturalsMatrix(int nrows, int ncols) {
         INDArray col = Nd4j.arange(0, nrows).transpose();
         INDArray points = Nd4j.zeros(nrows, ncols);
-        if(points.isColumnVector())
+        if (points.isColumnVector())
             points = col.dup();
         else {
             for (int i = 0; i < ncols; i++)
@@ -261,8 +263,8 @@ public class VpTreeNodeTest {
         for (DataPoint p : results)
             sortedResults.putRow(i++, p.getPoint());
         INDArray[] sortedWithIndices = Nd4j.sortWithIndices(sortedResults, dimensionToSort, true);;
-        sortedResults =sortedWithIndices[1];
-        assertEquals(trueResults.sumNumber().doubleValue(),sortedResults.sumNumber().doubleValue(),1e-12);
+        sortedResults = sortedWithIndices[1];
+        assertEquals(trueResults.sumNumber().doubleValue(), sortedResults.sumNumber().doubleValue(), 1e-12);
     }
 
 }
