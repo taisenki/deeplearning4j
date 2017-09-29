@@ -18,7 +18,6 @@
 
 package org.deeplearning4j.nn.graph.vertex.impl;
 
-import org.nd4j.linalg.primitives.Pair;
 import org.deeplearning4j.nn.api.Layer;
 import org.deeplearning4j.nn.api.MaskState;
 import org.deeplearning4j.nn.gradient.Gradient;
@@ -29,6 +28,7 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.indexing.INDArrayIndex;
 import org.nd4j.linalg.indexing.NDArrayIndex;
+import org.nd4j.linalg.primitives.Pair;
 
 import java.util.Arrays;
 
@@ -61,11 +61,6 @@ public class UnstackVertex extends BaseGraphVertex {
 
     @Override
     public boolean hasLayer() {
-        return false;
-    }
-
-    @Override
-    public boolean isOutputVertex() {
         return false;
     }
 

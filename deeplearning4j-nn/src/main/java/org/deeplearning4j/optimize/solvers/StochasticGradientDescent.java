@@ -19,7 +19,6 @@
 package org.deeplearning4j.optimize.solvers;
 
 import lombok.extern.slf4j.Slf4j;
-import org.nd4j.linalg.primitives.Pair;
 import org.deeplearning4j.nn.api.Model;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.gradient.Gradient;
@@ -29,6 +28,7 @@ import org.deeplearning4j.optimize.api.TerminationCondition;
 import org.nd4j.linalg.api.memory.MemoryWorkspace;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.primitives.Pair;
 
 import java.util.Collection;
 
@@ -85,14 +85,16 @@ public class StochasticGradientDescent extends BaseOptimizer {
             model.setParams(params);
 
             int iterationCount = BaseOptimizer.getIterationCount(model);
+            int epochCount = BaseOptimizer.getEpochCount(model);
             try (MemoryWorkspace workspace = Nd4j.getMemoryManager().scopeOutOfWorkspaces()) {
                 for (IterationListener listener : iterationListeners)
-                    listener.iterationDone(model, iterationCount);
+                    listener.iterationDone(model, iterationCount, epochCount);
             }
 
             checkTerminalConditions(pair.getFirst().gradient(), oldScore, score, i);
 
             BaseOptimizer.incrementIterationCount(model, 1);
+            applyConstraints(model);
         }
         return true;
     }

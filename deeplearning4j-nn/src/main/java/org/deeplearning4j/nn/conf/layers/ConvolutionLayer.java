@@ -15,7 +15,6 @@ import org.deeplearning4j.nn.params.ConvolutionParamInitializer;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.api.IterationListener;
 import org.deeplearning4j.util.ConvolutionUtils;
-import org.deeplearning4j.util.LayerValidation;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.activations.IActivation;
 import org.nd4j.linalg.api.ndarray.INDArray;
@@ -32,7 +31,9 @@ import java.util.Map;
 @ToString(callSuper = true)
 @EqualsAndHashCode(callSuper = true)
 public class ConvolutionLayer extends FeedForwardLayer {
+    protected boolean hasBias = true;
     protected ConvolutionMode convolutionMode = ConvolutionMode.Truncate; //Default to truncate here - default for 0.6.0 and earlier networks on JSON deserialization
+    protected int dilation[] = new int[]{1,1};
     protected int[] kernelSize; // Square filter
     protected int[] stride; // Default is 2. Down-sample by a factor of 2
     protected int[] padding;
@@ -88,7 +89,9 @@ public class ConvolutionLayer extends FeedForwardLayer {
      */
     protected ConvolutionLayer(BaseConvBuilder<?> builder) {
         super(builder);
+        this.hasBias = builder.hasBias;
         this.convolutionMode = builder.convolutionMode;
+        this.dilation = builder.dilation;
         if (builder.kernelSize.length != 2)
             throw new IllegalArgumentException("Kernel size of should be rows x columns (a 2d array)");
         this.kernelSize = builder.kernelSize;
@@ -102,6 +105,12 @@ public class ConvolutionLayer extends FeedForwardLayer {
         this.cudnnFwdAlgo = builder.cudnnFwdAlgo;
         this.cudnnBwdFilterAlgo = builder.cudnnBwdFilterAlgo;
         this.cudnnBwdDataAlgo = builder.cudnnBwdDataAlgo;
+
+        initializeConstraints(builder);
+    }
+
+    public boolean hasBias(){
+        return hasBias;
     }
 
     @Override
@@ -144,8 +153,8 @@ public class ConvolutionLayer extends FeedForwardLayer {
                             + "\"): Expected CNN input, got " + inputType);
         }
 
-        return InputTypeUtil.getOutputTypeCnnLayers(inputType, kernelSize, stride, padding, convolutionMode, nOut,
-                        layerIndex, getLayerName(), ConvolutionLayer.class);
+        return InputTypeUtil.getOutputTypeCnnLayers(inputType, kernelSize, stride, padding, dilation,
+                convolutionMode, nOut, layerIndex, getLayerName(), ConvolutionLayer.class);
     }
 
     @Override
@@ -196,23 +205,6 @@ public class ConvolutionLayer extends FeedForwardLayer {
     }
 
     @Override
-    public double getLearningRateByParam(String paramName) {
-        switch (paramName) {
-            case ConvolutionParamInitializer.WEIGHT_KEY:
-                return learningRate;
-            case ConvolutionParamInitializer.BIAS_KEY:
-                if (!Double.isNaN(biasLearningRate)) {
-                    //Bias learning rate has been explicitly set
-                    return biasLearningRate;
-                } else {
-                    return learningRate;
-                }
-            default:
-                throw new IllegalArgumentException("Unknown parameter name: \"" + paramName + "\"");
-        }
-    }
-
-    @Override
     public LayerMemoryReport getMemoryReport(InputType inputType) {
         int paramSize = initializer().numParams(this);
         int updaterStateSize = (int) getIUpdater().stateSize(paramSize);
@@ -245,7 +237,7 @@ public class ConvolutionLayer extends FeedForwardLayer {
                 trainWorkingSizePerEx = im2colSizePerEx;
             }
 
-            if (getDropOut() > 0) {
+            if (getIDropout() != null) {
                 //Dup on the input before dropout, but only for training
                 trainWorkingSizePerEx += inputType.arrayElementsPerExample();
             }
@@ -371,40 +363,10 @@ public class ConvolutionLayer extends FeedForwardLayer {
         }
 
         /**
-         * Learning rate. Defaults to 1e-1
-         *
-         * @param learningRate
-         */
-        @Override
-        public Builder learningRate(double learningRate) {
-            return super.learningRate(learningRate);
-        }
-
-        /**
-         * Bias learning rate. Set this to apply a different learning rate to the bias
-         *
-         * @param biasLearningRate
-         */
-        @Override
-        public Builder biasLearningRate(double biasLearningRate) {
-            return super.biasLearningRate(biasLearningRate);
-        }
-
-        /**
-         * Learning rate schedule. Map of the iteration to the learning rate to apply at that iteration.
-         *
-         * @param learningRateSchedule
-         */
-        @Override
-        public Builder learningRateSchedule(Map<Integer, Double> learningRateSchedule) {
-            return super.learningRateSchedule(learningRateSchedule);
-        }
-
-        /**
          * L1 regularization coefficient (weights only). Use {@link #l1Bias(double)} to configure the l1 regularization
          * coefficient for the bias.
          *
-         * @param l1
+         * @param l1 L1 regularization coefficient
          */
         @Override
         public Builder l1(double l1) {
@@ -415,7 +377,7 @@ public class ConvolutionLayer extends FeedForwardLayer {
          * L2 regularization coefficient (weights only). Use {@link #l2Bias(double)} to configure the l2 regularization
          * coefficient for the bias.
          *
-         * @param l2
+         * @param l2 L2 regularization coefficient
          */
         @Override
         public Builder l2(double l2) {
@@ -425,7 +387,7 @@ public class ConvolutionLayer extends FeedForwardLayer {
         /**
          * L1 regularization coefficient for the bias. Default: 0. See also {@link #l1(double)}
          *
-         * @param l1Bias
+         * @param l1Bias L1 regularization coefficient (bias)
          */
         @Override
         public Builder l1Bias(double l1Bias) {
@@ -443,37 +405,6 @@ public class ConvolutionLayer extends FeedForwardLayer {
         }
 
         /**
-         * Dropout. Value is probability of retaining an activation - thus 1.0 is equivalent to no dropout.
-         * Note that 0.0 (the default) disables dropout.
-         *
-         * @param dropOut
-         */
-        @Override
-        public Builder dropOut(double dropOut) {
-            return super.dropOut(dropOut);
-        }
-
-        /**
-         * Momentum rate.
-         *
-         * @param momentum
-         */
-        @Override
-        public Builder momentum(double momentum) {
-            return super.momentum(momentum);
-        }
-
-        /**
-         * Momentum schedule. Map of the iteration to the momentum rate to apply at that iteration.
-         *
-         * @param momentumAfter
-         */
-        @Override
-        public Builder momentumAfter(Map<Integer, Double> momentumAfter) {
-            return super.momentumAfter(momentumAfter);
-        }
-
-        /**
          * Gradient updater. For example, SGD for standard stochastic gradient descent, NESTEROV for Nesterov momentum,
          * RSMPROP for RMSProp, etc.
          *
@@ -481,59 +412,9 @@ public class ConvolutionLayer extends FeedForwardLayer {
          * @see Updater
          */
         @Override
+        @Deprecated
         public Builder updater(Updater updater) {
             return super.updater(updater);
-        }
-
-        /**
-         * Ada delta coefficient, rho. Only applies if using .updater(Updater.ADADELTA)
-         *
-         * @param rho
-         */
-        @Override
-        public Builder rho(double rho) {
-            return super.rho(rho);
-        }
-
-        /**
-         * Decay rate for RMSProp. Only applies if using .updater(Updater.RMSPROP)
-         *
-         * @param rmsDecay
-         */
-        @Override
-        public Builder rmsDecay(double rmsDecay) {
-            return super.rmsDecay(rmsDecay);
-        }
-
-        /**
-         * Epsilon value for updaters: Adagrad and Adadelta. Only used if using Updater.ADAGRAD or Updater.ADADELTA
-         *
-         * @param epsilon Epsilon value to use for adagrad and adadelta
-         */
-        @Override
-        public Builder epsilon(double epsilon) {
-            return super.epsilon(epsilon);
-        }
-
-        /**
-         * Mean decay rate for Adam updater. Only applies if using .updater(Updater.ADAM)
-         *
-         * @param adamMeanDecay
-         */
-        @Override
-        public Builder adamMeanDecay(double adamMeanDecay) {
-            return super.adamMeanDecay(adamMeanDecay);
-        }
-
-        /**
-         * Variance decay rate for Adam updater. Only applies if using .updater(Updater.ADAM)
-         *
-         * @param adamVarDecay
-         */
-        @Override
-        public Builder adamVarDecay(double adamVarDecay) {
-            super.adamVarDecay(adamVarDecay);
-            return this;
         }
 
         /**
@@ -559,18 +440,6 @@ public class ConvolutionLayer extends FeedForwardLayer {
         @Override
         public Builder gradientNormalizationThreshold(double threshold) {
             super.gradientNormalizationThreshold(threshold);
-            return this;
-        }
-
-        /**
-         * Learning rate decay policy. Used to adapt learning rate based on policy.
-         *
-         * @param policy Type of policy to use. Defaults to None.
-         * @see GradientNormalization
-         */
-        @Override
-        public Builder learningRateDecayPolicy(LearningRatePolicy policy) {
-            super.learningRateDecayPolicy(policy);
             return this;
         }
 
@@ -606,7 +475,9 @@ public class ConvolutionLayer extends FeedForwardLayer {
     }
 
     protected static abstract class BaseConvBuilder<T extends BaseConvBuilder<T>> extends FeedForwardLayer.Builder<T> {
+        protected boolean hasBias = true;
         protected ConvolutionMode convolutionMode = null;
+        protected int[] dilation = new int[]{1, 1};
         protected int[] kernelSize = new int[] {5, 5};
         protected int[] stride = new int[] {1, 1};
         protected int[] padding = new int[] {0, 0};
@@ -634,6 +505,16 @@ public class ConvolutionLayer extends FeedForwardLayer {
         protected BaseConvBuilder() {}
 
         /**
+         * If true (default): include bias parameters in the model. False: no bias.
+         *
+         * @param hasBias If true: include bias parameters in this model
+         */
+        public T hasBias(boolean hasBias){
+            this.hasBias = hasBias;
+            return (T)this;
+        }
+
+        /**
          * Set the convolution mode for the Convolution layer.
          * See {@link ConvolutionMode} for more details
          *
@@ -641,6 +522,23 @@ public class ConvolutionLayer extends FeedForwardLayer {
          */
         public T convolutionMode(ConvolutionMode convolutionMode) {
             this.convolutionMode = convolutionMode;
+            return (T) this;
+        }
+
+        /**
+         * Kernel dilation. Default: {1, 1}, which is standard convolutions. Used for implementing dilated convolutions,
+         * which are also known as atrous convolutions.
+         *
+         * For more details, see:
+         * <a href="https://arxiv.org/abs/1511.07122">Yu and Koltun (2014)</a> and
+         * <a href="https://arxiv.org/abs/1412.7062">Chen et al. (2014)</a>, as well as
+         * <a href="http://deeplearning.net/software/theano/tutorial/conv_arithmetic.html#dilated-convolutions">
+         *     http://deeplearning.net/software/theano/tutorial/conv_arithmetic.html#dilated-convolutions</a><br>
+         *
+         * @param dilation Dilation for kernel
+         */
+        public T dilation(int... dilation){
+            this.dilation = dilation;
             return (T) this;
         }
 

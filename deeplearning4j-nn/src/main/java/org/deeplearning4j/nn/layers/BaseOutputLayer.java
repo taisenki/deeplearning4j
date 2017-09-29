@@ -18,7 +18,6 @@
 
 package org.deeplearning4j.nn.layers;
 
-import org.nd4j.linalg.primitives.Pair;
 import org.deeplearning4j.eval.Evaluation;
 import org.deeplearning4j.nn.api.MaskState;
 import org.deeplearning4j.nn.api.Updater;
@@ -33,6 +32,7 @@ import org.nd4j.linalg.dataset.api.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.lossfunctions.ILossFunction;
+import org.nd4j.linalg.primitives.Pair;
 import org.nd4j.linalg.util.FeatureUtil;
 
 import java.io.Serializable;
@@ -148,7 +148,11 @@ public abstract class BaseOutputLayer<LayerConfT extends org.deeplearning4j.nn.c
         Pair<Gradient, INDArray> pair = getGradientsAndDelta(preOutput2d(true)); //Returns Gradient and delta^(this), not Gradient and epsilon^(this-1)
         INDArray delta = pair.getSecond();
 
-        INDArray epsilonNext = params.get(DefaultParamInitializer.WEIGHT_KEY).mmul(delta.transpose()).transpose();
+        INDArray epsilonNext = getParamWithNoise(DefaultParamInitializer.WEIGHT_KEY, true).mmul(delta.transpose()).transpose();
+
+        //Normally we would clear weightNoiseParams here - but we want to reuse them for forward + backward + score
+        // So this is instead done in MultiLayerNetwork/CompGraph backprop methods
+
         return new Pair<>(pair.getFirst(), epsilonNext);
     }
 
@@ -171,13 +175,14 @@ public abstract class BaseOutputLayer<LayerConfT extends org.deeplearning4j.nn.c
         Gradient gradient = new DefaultGradient();
 
         INDArray weightGradView = gradientViews.get(DefaultParamInitializer.WEIGHT_KEY);
-        INDArray biasGradView = gradientViews.get(DefaultParamInitializer.BIAS_KEY);
-
         Nd4j.gemm(input, delta, weightGradView, true, false, 1.0, 0.0); //Equivalent to:  weightGradView.assign(input.transpose().mmul(delta));
-        delta.sum(biasGradView, 0); //biasGradView is initialized/zeroed first in sum op
-
         gradient.gradientForVariable().put(DefaultParamInitializer.WEIGHT_KEY, weightGradView);
-        gradient.gradientForVariable().put(DefaultParamInitializer.BIAS_KEY, biasGradView);
+
+        if(hasBias()){
+            INDArray biasGradView = gradientViews.get(DefaultParamInitializer.BIAS_KEY);
+            delta.sum(biasGradView, 0); //biasGradView is initialized/zeroed first in sum op
+            gradient.gradientForVariable().put(DefaultParamInitializer.BIAS_KEY, biasGradView);
+        }
 
         return new Pair<>(gradient, delta);
     }
@@ -332,7 +337,7 @@ public abstract class BaseOutputLayer<LayerConfT extends org.deeplearning4j.nn.c
             int updaterStateSize = 0;
             Map<String, INDArray> paramTable = paramTable();
             for (Map.Entry<String, INDArray> entry : paramTable.entrySet()) {
-                updaterStateSize += (int) conf().getLayer().getIUpdaterByParam(entry.getKey())
+                updaterStateSize += (int) conf().getLayer().getUpdaterByParam(entry.getKey())
                                 .stateSize(entry.getValue().length());
             }
             if (updaterStateSize > 0)
@@ -368,10 +373,7 @@ public abstract class BaseOutputLayer<LayerConfT extends org.deeplearning4j.nn.c
     @Override
     public void clear() {
         super.clear();
-        if (labels != null) {
-            labels.data().destroy();
-            labels = null;
-        }
+        labels = null;
         solver = null;
     }
 
@@ -430,5 +432,10 @@ public abstract class BaseOutputLayer<LayerConfT extends org.deeplearning4j.nn.c
     @Override
     public boolean isPretrainLayer() {
         return false;
+    }
+
+    @Override
+    public boolean hasBias() {
+        return layerConf().hasBias();
     }
 }

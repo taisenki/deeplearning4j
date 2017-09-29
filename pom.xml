@@ -93,6 +93,7 @@
         <reflections.version>0.9.10</reflections.version>
         <javax.ws.rs.version>2.0</javax.ws.rs.version>
         <guava.version>20.0</guava.version>
+        <eclipse.collections.version>8.2.0</eclipse.collections.version>
         <maven-source-plugin.version>3.0.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>2.10.4</maven-javadoc-plugin.version>
         <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
@@ -454,6 +455,32 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+          <id>trimSnapshots</id>
+          <build>
+            <plugins>
+              <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>1.7</version>
+                <executions>
+                  <execution>
+                    <id>remove-old-artifacts</id>
+                    <phase>package</phase>
+                    <goals>
+                      <goal>remove-project-artifact</goal>
+                    </goals>
+                    <configuration>
+                      <removeAll>true</removeAll>
+                    </configuration>
+                  </execution>
+                </executions>
+              </plugin>
+            </plugins>
+          </build>
+        </profile>
+
     </profiles>
     <scm>
         <connection>scm:git://github.com:deeplearning4j/deeplearning4j.git</connection>
@@ -471,7 +498,6 @@
         <module>deeplearning4j-nlp-parent</module>
         <module>deeplearning4j-nn</module>
         <module>deeplearning4j-modelimport</module>
-        <module>deeplearning4j-keras</module>
         <module>deeplearning4j-zoo</module>
         <module>deeplearning4j-nearestneighbors-parent</module>
     </modules>
@@ -664,7 +690,6 @@
                         <directory>deeplearning4j-nlp-parent</directory>
                         <directory>deeplearning4j-nn</directory>
                         <directory>deeplearning4j-modelimport</directory>
-                        <directory>deeplearning4j-keras</directory>
                         <directory>deeplearning4j-zoo</directory>
                         <directory>deeplearning4j-nearestneighbors-parent</directory>
                     </directories>

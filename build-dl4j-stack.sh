@@ -90,10 +90,12 @@ done
 # default for chip
 if [[ -z "$CHIP" ]]; then
     # test for cuda libraries
-    if (ldconfig -p | grep -q libcuda\.so) then
-        CHIP="cuda"
-    else
-        CHIP="cpu"
+    if (type ldconfig &> /dev/null); then
+       if (ldconfig -p | grep -q libcuda\.so); then
+           CHIP="cuda"
+       else
+           CHIP="cpu"
+        fi
     fi
 fi
 
@@ -264,7 +266,7 @@ if [[ -z "$SKIP_DL4J" ]]; then
     fi
     if [ "$SCALAV" == "" ]; then
         if [ "$CHIP" == "cpu" ]; then
-            checkexit bash buildmultiplescalaversions.sh clean install -Dmaven.javadoc.skip=true -pl '!deeplearning4j-cuda-8.0' $DL4J_OPTIONS $MVN_OPTS
+            checkexit bash buildmultiplescalaversions.sh clean install -Dmaven.javadoc.skip=true -pl '!./deeplearning4j-cuda/' $DL4J_OPTIONS $MVN_OPTS
         else
             checkexit bash buildmultiplescalaversions.sh clean install -Dmaven.javadoc.skip=true $DL4J_OPTIONS $MVN_OPTS
         fi

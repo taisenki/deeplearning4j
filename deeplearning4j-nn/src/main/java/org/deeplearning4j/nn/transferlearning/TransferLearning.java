@@ -1,9 +1,6 @@
 package org.deeplearning4j.nn.transferlearning;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.commons.lang3.tuple.Triple;
 import org.deeplearning4j.nn.conf.*;
 import org.deeplearning4j.nn.conf.distribution.Distribution;
 import org.deeplearning4j.nn.conf.graph.GraphVertex;
@@ -19,6 +16,7 @@ import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.primitives.Pair;
+import org.nd4j.linalg.primitives.Triple;
 
 import java.util.*;
 
@@ -181,9 +179,9 @@ public class TransferLearning {
         private Builder nOutReplace(int layerNum, int nOut, WeightInit scheme, WeightInit schemeNext, Distribution dist,
                         Distribution distNext) {
             editedLayers.add(layerNum);
-            ImmutableTriple<Integer, Pair<WeightInit, Distribution>, Pair<WeightInit, Distribution>> t =
-                            new ImmutableTriple(nOut, new ImmutablePair<>(scheme, dist),
-                                            new ImmutablePair<>(schemeNext, distNext));
+            Triple<Integer, Pair<WeightInit, Distribution>, Pair<WeightInit, Distribution>> t =
+                            new Triple(nOut, new Pair<>(scheme, dist),
+                                            new Pair<>(schemeNext, distNext));
             editedLayersMap.put(layerNum, t);
             return this;
         }
@@ -297,12 +295,10 @@ public class TransferLearning {
                             origNNC.variables(false).add(s);
                             origNNC.getL1ByParam().put(s, 0.0);
                             origNNC.getL2ByParam().put(s, 0.0);
-                            origNNC.getLearningRateByParam().put(s, 0.0);
 
                             layerNNC.variables(false).add(s);
                             layerNNC.getL1ByParam().put(s, 0.0);
                             layerNNC.getL2ByParam().put(s, 0.0);
-                            layerNNC.getLearningRateByParam().put(s, 0.0);
                         }
                     }
 
@@ -819,7 +815,6 @@ public class TransferLearning {
                                 newNNC.variables(false).add(s);
                                 newNNC.getL1ByParam().put(s, 0.0);
                                 newNNC.getL2ByParam().put(s, 0.0);
-                                newNNC.getLearningRateByParam().put(s, 0.0);
                             }
 
                             //We also need to place the layer in the CompGraph Layer[] (replacing the old one)

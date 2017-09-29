@@ -19,7 +19,6 @@
 package org.deeplearning4j.nn.layers.recurrent;
 
 import lombok.extern.slf4j.Slf4j;
-import org.nd4j.linalg.primitives.Pair;
 import org.deeplearning4j.nn.api.Layer;
 import org.deeplearning4j.nn.api.MaskState;
 import org.deeplearning4j.nn.conf.CacheMode;
@@ -28,6 +27,7 @@ import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.deeplearning4j.nn.params.GravesBidirectionalLSTMParamInitializer;
 import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.primitives.Pair;
 
 import java.util.Map;
 
@@ -68,11 +68,6 @@ public class GravesBidirectionalLSTM
 
     @Override
     public Gradient gradient() {
-        throw new UnsupportedOperationException("Not supported " + layerId());
-    }
-
-    @Override
-    public Gradient calcGradient(Gradient layerError, INDArray activation) {
         throw new UnsupportedOperationException("Not supported " + layerId());
     }
 
@@ -266,11 +261,6 @@ public class GravesBidirectionalLSTM
     }
 
     @Override
-    public INDArray activationMean() {
-        return activate();
-    }
-
-    @Override
     public Type type() {
         return Type.RECURRENT;
     }
@@ -287,9 +277,6 @@ public class GravesBidirectionalLSTM
 
     @Override
     public double calcL2(boolean backpropParamsOnly) {
-        if (!conf.isUseRegularization())
-            return 0.0;
-
         double l2Sum = 0.0;
         for (Map.Entry<String, INDArray> entry : paramTable().entrySet()) {
             double l2 = conf.getL2ByParam(entry.getKey());
@@ -305,9 +292,6 @@ public class GravesBidirectionalLSTM
 
     @Override
     public double calcL1(boolean backpropParamsOnly) {
-        if (!conf.isUseRegularization())
-            return 0.0;
-
         double l1Sum = 0.0;
         for (Map.Entry<String, INDArray> entry : paramTable().entrySet()) {
             double l1 = conf.getL1ByParam(entry.getKey());
