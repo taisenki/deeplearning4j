@@ -36,6 +36,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.URI;
 import java.nio.file.Files;
 import java.util.Collections;
 import java.util.Comparator;
@@ -56,7 +57,7 @@ public class TestYolo2OutputLayer {
         int mb = 3;
         int b = 4;
         int c = 3;
-        int depth = 5 * b + c;
+        int depth = b * (5 + c);
         int w = 6;
         int h = 6;
 
@@ -134,7 +135,7 @@ public class TestYolo2OutputLayer {
         int mb = 3;
         int b = 4;
         int c = 3;
-        int depth = 5 * b + c;
+        int depth = b * (5 + c);
         int w = 6;
         int h = 6;
 
@@ -162,8 +163,7 @@ public class TestYolo2OutputLayer {
 
 
         //Check values for x/y, confidence: all should be 0 to 1
-        INDArray out4 = out.get(all(), interval(0,5*b), all(), all()).dup('c');
-        INDArray out5 = out4.reshape(mb, b, 5, h, w);
+        INDArray out5 = out.reshape('c', mb, b, 5+c, h, w);
 
         INDArray predictedXYCenterGrid = out5.get(all(), all(), interval(0,2), all(), all());
         INDArray predictedWH = out5.get(all(), all(), interval(2,4), all(), all());   //Shape: [mb, B, 2, H, W]
@@ -178,11 +178,11 @@ public class TestYolo2OutputLayer {
 
 
         //Check classes:
-        INDArray probs = out.get(all(), interval(5*b, 5*b+c), all(), all());   //Shape: [minibatch, C, H, W]
+        INDArray probs = out5.get(all(), all(), interval(5, 5+c), all(), all());   //Shape: [minibatch, C, H, W]
         assertTrue(probs.minNumber().doubleValue() >= 0.0);
         assertTrue(probs.maxNumber().doubleValue() <= 1.0);
 
-        INDArray probsSum = probs.sum(1);
+        INDArray probsSum = probs.sum(2);
         assertEquals(1.0, probsSum.minNumber().doubleValue(), 1e-6);
         assertEquals(1.0, probsSum.maxNumber().doubleValue(), 1e-6);
     }
@@ -221,7 +221,8 @@ public class TestYolo2OutputLayer {
                 {3, 3}});
 
         VocLabelProvider lp = new VocLabelProvider(dir.getPath());
-        int depthOut = bbPriors.size(0)*5 + 20;
+        int c = 20;
+        int depthOut = bbPriors.size(0) * (bbPriors.size(0) + c);
 
         int origW = 500;
         int origH = 375;
@@ -440,11 +441,15 @@ public class TestYolo2OutputLayer {
         int gridH = 13;
 
         RecordReader rr = new ObjectDetectionRecordReader(52, 52, 3, gridH, gridW, lp);
-        rr.initialize(new FileSplit(jpg));
+        FileSplit fileSplit = new FileSplit(jpg);
+        rr.initialize(fileSplit);
 
         int nClasses = rr.getLabels().size();
-        int depthOut = bbPriors.size(0)*5 + nClasses;
-        int idxCat = rr.getLabels().indexOf("cat");
+        int depthOut = bbPriors.size(0) * (5 + nClasses);
+        // make sure idxCat is not 0 to test DetectedObject.getPredictedClass()
+        List<String> labels = rr.getLabels();
+        labels.add(labels.remove(labels.indexOf("cat")));
+        int idxCat = labels.size() - 1;
 
 
         DataSetIterator iter = new RecordReaderDataSetIterator(rr,1,1,1,true);
@@ -474,6 +479,11 @@ public class TestYolo2OutputLayer {
 
         int nEpochs = 1500;
         DataSet ds = iter.next();
+        URI[] uris = fileSplit.locations();
+        if (!uris[0].getPath().contains("2007_009346")) {
+            // make sure to get the cat image
+            ds = iter.next();
+        }
         assertEquals(1, ds.getFeatures().size(0));
         for( int i=0; i<=nEpochs; i++ ){
             net.fit(ds);

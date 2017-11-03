@@ -63,7 +63,7 @@
         <typesafe.config.version>1.3.0</typesafe.config.version>
         <py4j.version>0.10.4</py4j.version>
         <jcommander.version>1.27</jcommander.version>
-        <javacpp.version>1.3.3</javacpp.version>
+        <javacpp.version>1.3.4-SNAPSHOT</javacpp.version>
         <javacpp-presets.version>1.3</javacpp-presets.version>
         <hadoop.version>2.2.0</hadoop.version>
         <commonsmath.version>3.4.1</commonsmath.version>
@@ -165,16 +165,16 @@
                     <id>local-nexus</id>
                     <name>local-nexus</name>
                     <url>
-                        http://master-jenkins.skymind.io:8088/nexus/content/repositories/snapshots
+                        http://master-jenkins.skymind.io:8088/repository/snapshots
                     </url>
                 </snapshotRepository>
-                <repository>
-                    <id>local-nexus</id>
-                    <name>local-nexus</name>
-                    <url>
-                        http://master-jenkins.skymind.io:8088/nexus/service/local/staging/deploy/maven2
-                    </url>
-                </repository>
+                <!-- <repository> -->
+                <!--     <id>local-nexus</id> -->
+                <!--     <name>local-nexus</name> -->
+                <!--     <url> -->
+                <!--         http://master-jenkins.skymind.io:8088/service/local/staging/deploy/maven2 -->
+                <!--     </url> -->
+                <!-- </repository> -->
             </distributionManagement>
             <build>
                 <plugins>
@@ -201,7 +201,7 @@
                         <extensions>true</extensions>
                         <configuration>
                             <serverId>local-nexus</serverId>
-                            <nexusUrl>http://master-jenkins.skymind.io.com:8088/nexus/</nexusUrl>
+                            <nexusUrl>http://master-jenkins.skymind.io.com:8088/</nexusUrl>
                             <skipStagingRepositoryClose>true</skipStagingRepositoryClose>
                         </configuration>
                     </plugin>
@@ -362,7 +362,7 @@
                 </dependency>
                 <dependency>
                     <groupId>org.nd4j</groupId>
-                    <artifactId>nd4j-cuda-8.0</artifactId>
+                    <artifactId>nd4j-cuda-9.0</artifactId>
                     <version>${nd4j.version}</version>
                     <scope>test</scope>
                 </dependency>
@@ -618,36 +618,6 @@
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
             <plugin>
-                <groupId>net.alchim31.maven</groupId>
-                <artifactId>scala-maven-plugin</artifactId>
-                <version>${maven-scala-plugin.version}</version>
-                <configuration>
-                    <scalaVersion>2.11.8</scalaVersion>
-                    <args>
-                        <arg>-deprecation</arg>
-                        <arg>-explaintypes</arg>
-                    </args>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>scala-compile-first</id>
-                        <phase>process-resources</phase>
-                        <goals>
-                            <goal>add-source</goal>
-                            <goal>compile</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>scala-test-compile</id>
-                        <phase>process-test-resources</phase>
-                        <goals>
-                            <goal>add-source</goal>
-                            <goal>testCompile</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <artifactId>maven-source-plugin</artifactId>
             </plugin>
             <plugin>
@@ -837,7 +807,9 @@
                                         <groupId>com.lewisd</groupId>
                                         <artifactId>lint-maven-plugin</artifactId>
                                         <versionRange>[0.0.11,)</versionRange>
-                                        <goal>check</goal>
+                                        <goals>
+                                          <goal>check</goal>
+                                        </goals>
                                     </pluginExecutionFilter>
                                     <action>
                                         <ignore/>
